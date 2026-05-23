@@ -1,0 +1,15 @@
+.git
+.agents
+.codex
+data
+tmp
+saved
+results
+pretrained_models
+__pycache__
+*.pyc
+*.pyo
+*.swp
+*.swo
+.pytest_cache
+

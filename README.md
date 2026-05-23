@@ -76,6 +76,15 @@ To verify that dependencies are correctly installed and data is setup correctly,
 python main.py -n1 --auto_gpu_config 0 --split val
 ```
 
+### Docker reproduction environment
+
+A Docker-based reproduction environment is provided in [`docker/Dockerfile`](./docker/Dockerfile)
+and [`docker-compose.yml`](./docker-compose.yml). It pins the original Habitat/PyTorch-era stack
+and builds the required Habitat components.
+
+See [`docs/DOCKER_REPRODUCTION.md`](./docs/DOCKER_REPRODUCTION.md) for build, dataset setup,
+pretrained model download, evaluation, and training commands.
+
 
 ## Usage
 

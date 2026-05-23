@@ -1,5 +1,6 @@
 matplotlib
 tensorboard
+future==0.18.2
 seaborn==0.9.0
 imageio==2.6.0
 scikit-fmm==2019.1.30

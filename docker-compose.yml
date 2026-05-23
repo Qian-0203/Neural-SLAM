@@ -1,0 +1,31 @@
+services:
+  neural-slam:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: neural-slam:repro
+    working_dir: /workspace/Neural-SLAM
+    shm_size: "16gb"
+    gpus: all
+    stdin_open: true
+    tty: true
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,graphics
+      __EGL_VENDOR_LIBRARY_FILENAMES: /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+      GLOG_minloglevel: "2"
+      MAGNUM_LOG: quiet
+      HABITAT_SIM_LOG: quiet
+    volumes:
+      - ./data:/workspace/Neural-SLAM/data
+      - ./pretrained_models:/workspace/Neural-SLAM/pretrained_models
+      - ./saved:/workspace/Neural-SLAM/saved
+      - ./results:/workspace/Neural-SLAM/results
+      - ./tmp:/workspace/Neural-SLAM/tmp
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
