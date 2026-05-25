@@ -11,7 +11,17 @@ This Docker setup targets the dependency versions used by the original Active Ne
 
 ## 1. Host Requirements
 
-Install Docker with the NVIDIA Container Toolkit on a Linux host with an NVIDIA driver compatible with CUDA 10.0 runtime containers.
+Install Docker with the NVIDIA Container Toolkit on a Linux host with a working
+NVIDIA driver. Check the host driver before debugging the container:
+
+```bash
+nvidia-smi
+```
+
+If this reports `Failed to initialize NVML: Driver/library version mismatch`,
+reboot after the driver update or reinstall matching NVIDIA driver packages
+before running Docker. The container cannot start with GPU access until
+`nvidia-smi` works on the host.
 
 Check GPU container access:
 
@@ -105,7 +115,11 @@ docker compose run --rm neural-slam \
   python main.py -n 1 --auto_gpu_config 0 --split val
 ```
 
-For CPU-only import checks, use `--no_cuda`, but full Habitat simulation and paper reproduction are intended for GPU.
+For CPU-only import checks, use `--no_cuda`, but full Habitat simulation and
+paper reproduction are intended for the GPU-enabled `neural-slam` service.
+Do not use the `neural-slam-cpu` service for Habitat evaluation: this
+Habitat-Sim build uses headless EGL and still needs the NVIDIA runtime even if
+PyTorch runs on CPU.
 
 ## 6. Convert Validation Split for Evaluation
 
@@ -122,12 +136,15 @@ writes `data/datasets/pointnav/gibson/v1/val_mt/`.
 ## 7. Reproduce Pretrained Evaluation
 
 Before the full 14-process evaluation, run a one-process sanity check. This
-confirms that the dataset, scene files, and pretrained checkpoints can load:
+confirms that the dataset, scene files, and pretrained checkpoints can load.
+`--pretrained_resnet 0` avoids downloading torchvision's ResNet18 weights at
+startup; the SLAM checkpoint is loaded immediately afterwards.
 
 ```bash
 docker compose run --rm neural-slam \
   python main.py --split val_mt --eval 1 \
   --auto_gpu_config 0 -n 1 --num_episodes 1 --num_processes_per_gpu 1 \
+  --pretrained_resnet 0 \
   --load_global pretrained_models/model_best.global --train_global 0 \
   --load_local pretrained_models/model_best.local --train_local 0 \
   --load_slam pretrained_models/model_best.slam --train_slam 0
@@ -139,6 +156,7 @@ Recommended Gibson validation evaluation uses 14 processes and 71 episodes per p
 docker compose run --rm neural-slam \
   python main.py --split val_mt --eval 1 \
   --auto_gpu_config 0 -n 14 --num_episodes 71 --num_processes_per_gpu 7 \
+  --pretrained_resnet 0 \
   --load_global pretrained_models/model_best.global --train_global 0 \
   --load_local pretrained_models/model_best.local --train_local 0 \
   --load_slam pretrained_models/model_best.slam --train_slam 0
@@ -151,10 +169,72 @@ docker compose run --rm neural-slam \
   python main.py --split val_mt --eval 1 \
   --auto_gpu_config 0 -n 14 --num_episodes 71 --num_processes_per_gpu 7 \
   --map_size_cm 4800 --global_downscaling 4 \
+  --pretrained_resnet 0 \
   --load_global pretrained_models/model_best.global --train_global 0 \
   --load_local pretrained_models/model_best.local --train_local 0 \
   --load_slam pretrained_models/model_best.slam --train_slam 0
 ```
+
+### Newer NVIDIA GPUs
+
+This image intentionally pins CUDA 10.0, cuDNN 7, PyTorch 1.2.0, and
+torchvision 0.4.0. These libraries can fail on modern GPUs during PyTorch
+CUDA inference, for example with `CUDNN_STATUS_EXECUTION_FAILED`. Keep Habitat
+on the GPU-enabled service, but add `--no_cuda` so neural network inference
+runs on CPU:
+
+```bash
+docker compose run --rm neural-slam \
+  python main.py --split val_mt --eval 1 --no_cuda \
+  --auto_gpu_config 0 -n 14 --num_episodes 71 --num_processes_per_gpu 7 \
+  --pretrained_resnet 0 \
+  --load_global pretrained_models/model_best.global --train_global 0 \
+  --load_local pretrained_models/model_best.local --train_local 0 \
+  --load_slam pretrained_models/model_best.slam --train_slam 0
+```
+
+This is slower, but it avoids using the legacy PyTorch CUDA kernels while
+still letting Habitat-Sim render through EGL. If you need fast PyTorch GPU
+inference on a modern GPU, port the environment to a newer CUDA/PyTorch and
+Habitat stack.
+
+### Small Evaluation and Visualization
+
+For a quick finished run, reduce `--num_episodes`:
+
+```bash
+docker compose run --rm neural-slam \
+  python main.py --split val_mt --eval 1 --no_cuda \
+  --auto_gpu_config 0 -n 14 --num_episodes 1 --num_processes_per_gpu 7 \
+  --pretrained_resnet 0 \
+  --load_global pretrained_models/model_best.global --train_global 0 \
+  --load_local pretrained_models/model_best.local --train_local 0 \
+  --load_slam pretrained_models/model_best.slam --train_slam 0
+```
+
+To dump visualization PNGs on a headless machine, add `--print_images 1`,
+choose a results directory, and set an experiment name:
+
+```bash
+docker compose run --rm neural-slam \
+  python main.py --split val_mt --eval 1 --no_cuda \
+  --auto_gpu_config 0 -n 14 --num_episodes 1 --num_processes_per_gpu 7 \
+  --print_images 1 -d results/ --exp_name vis_test \
+  --pretrained_resnet 0 \
+  --load_global pretrained_models/model_best.global --train_global 0 \
+  --load_local pretrained_models/model_best.local --train_local 0 \
+  --load_slam pretrained_models/model_best.slam --train_slam 0
+```
+
+The PNGs are written under:
+
+```text
+results/dump/vis_test/episodes/
+```
+
+Use `--vis_type 1` for predicted map and pose, or `--vis_type 2` for the
+ground-truth map and pose. Avoid `-v 1` unless GUI display forwarding is set
+up.
 
 Evaluation logs and dumps are written under the mounted `tmp/`, `saved/`, or `results/` folders depending on the command arguments.
 

@@ -227,7 +227,8 @@ def main():
                                     args.local_optimizer)
 
     # Storage
-    g_rollouts = GlobalRolloutStorage(args.num_global_steps,
+    g_rollout_steps = args.num_global_steps if args.train_global else 1
+    g_rollouts = GlobalRolloutStorage(g_rollout_steps,
                                       num_scenes, g_observation_space.shape,
                                       g_action_space, g_policy.rec_state_size,
                                       1).to(device)
@@ -505,12 +506,13 @@ def main():
                 )
 
                 # Sample long-term goal from global policy
+                g_rollout_index = g_step + 1 if args.train_global else 1
                 g_value, g_action, g_action_log_prob, g_rec_states = \
                     g_policy.act(
-                        g_rollouts.obs[g_step + 1],
-                        g_rollouts.rec_states[g_step + 1],
-                        g_rollouts.masks[g_step + 1],
-                        extras=g_rollouts.extras[g_step + 1],
+                        g_rollouts.obs[g_rollout_index],
+                        g_rollouts.rec_states[g_rollout_index],
+                        g_rollouts.masks[g_rollout_index],
+                        extras=g_rollouts.extras[g_rollout_index],
                         deterministic=False
                     )
                 cpu_actions = nn.Sigmoid()(g_action).cpu().numpy()

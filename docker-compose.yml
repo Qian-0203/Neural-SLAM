@@ -17,6 +17,7 @@ services:
       MAGNUM_LOG: quiet
       HABITAT_SIM_LOG: quiet
     volumes:
+      - ./main.py:/workspace/Neural-SLAM/main.py
       - ./data:/workspace/Neural-SLAM/data
       - ./pretrained_models:/workspace/Neural-SLAM/pretrained_models
       - ./saved:/workspace/Neural-SLAM/saved
@@ -29,3 +30,24 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  neural-slam-cpu:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: neural-slam:repro
+    working_dir: /workspace/Neural-SLAM
+    shm_size: "16gb"
+    stdin_open: true
+    tty: true
+    environment:
+      GLOG_minloglevel: "2"
+      MAGNUM_LOG: quiet
+      HABITAT_SIM_LOG: quiet
+    volumes:
+      - ./main.py:/workspace/Neural-SLAM/main.py
+      - ./data:/workspace/Neural-SLAM/data
+      - ./pretrained_models:/workspace/Neural-SLAM/pretrained_models
+      - ./saved:/workspace/Neural-SLAM/saved
+      - ./results:/workspace/Neural-SLAM/results
+      - ./tmp:/workspace/Neural-SLAM/tmp

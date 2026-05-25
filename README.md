@@ -85,6 +85,60 @@ and builds the required Habitat components.
 See [`docs/DOCKER_REPRODUCTION.md`](./docs/DOCKER_REPRODUCTION.md) for build, dataset setup,
 pretrained model download, evaluation, and training commands.
 
+### Docker evaluation on newer NVIDIA GPUs
+
+The Docker image intentionally uses the original-era stack: CUDA 10.0,
+cuDNN 7, PyTorch 1.2.0, and torchvision 0.4.0. Newer GPUs can run the
+Habitat simulator through the NVIDIA runtime, but PyTorch CUDA kernels may
+fail on these old libraries. In that case, keep using the GPU-enabled
+`neural-slam` service for Habitat and add `--no_cuda` so the neural models run
+on CPU.
+
+When evaluating from pretrained checkpoints, also add `--pretrained_resnet 0`
+to avoid downloading torchvision's ResNet18 weights at startup. This also
+keeps evaluation working when the container has no network or DNS. The SLAM
+checkpoint is loaded immediately afterwards and provides the trained weights.
+
+Small sanity evaluation:
+
+```
+docker compose run --rm neural-slam \
+  python main.py --split val_mt --eval 1 --no_cuda \
+  --auto_gpu_config 0 -n 14 --num_episodes 1 --num_processes_per_gpu 7 \
+  --pretrained_resnet 0 \
+  --load_global pretrained_models/model_best.global --train_global 0 \
+  --load_local pretrained_models/model_best.local --train_local 0 \
+  --load_slam pretrained_models/model_best.slam --train_slam 0
+```
+
+Small visualization run:
+
+```
+docker compose run --rm neural-slam \
+  python main.py --split val_mt --eval 1 --no_cuda \
+  --auto_gpu_config 0 -n 14 --num_episodes 1 --num_processes_per_gpu 7 \
+  --print_images 1 -d results/ --exp_name vis_test \
+  --pretrained_resnet 0 \
+  --load_global pretrained_models/model_best.global --train_global 0 \
+  --load_local pretrained_models/model_best.local --train_local 0 \
+  --load_slam pretrained_models/model_best.slam --train_slam 0
+```
+
+Visualization PNGs are written under:
+
+```
+results/dump/vis_test/episodes/
+```
+
+Use `--vis_type 1` for predicted map and pose, or `--vis_type 2` for
+ground-truth map and pose. Avoid the `neural-slam-cpu` service for full runs:
+this Habitat-Sim build needs the NVIDIA runtime for headless EGL simulation
+even when PyTorch is running with `--no_cuda`.
+
+If Docker reports `nvml error: driver/library version mismatch`, fix the host
+NVIDIA driver first. A reboot after driver installation is often enough; verify
+with `nvidia-smi` before rerunning Docker.
+
 
 ## Usage
 
